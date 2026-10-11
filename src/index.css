@@ -1,0 +1,162 @@
+@import './styles/tokens.css';
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Маппинг токенов на утилиты Tailwind: bg-surface, text-fg, border-line, bg-brand ... */
+@theme inline {
+  --color-surface: var(--surface-bg);
+  --color-raised: var(--surface-raised);
+  --color-sunken: var(--surface-sunken);
+  --color-alt: var(--surface-alt);
+
+  --color-fg: var(--text-primary);
+  --color-muted: var(--text-secondary);
+  --color-faint: var(--text-faint);
+  --color-inverse: var(--text-inverse);
+
+  --color-line: var(--line-border);
+  --color-line-strong: var(--line-border-strong);
+  --color-focus: var(--line-focus);
+
+  --color-brand: var(--accent-primary);
+  --color-brand-hover: var(--accent-primary-hover);
+  --color-brand-fg: var(--accent-primary-text);
+  --color-brand-subtle: var(--accent-subtle);
+  --color-accent: var(--accent-secondary);
+  --color-link: var(--accent-link);
+
+  --color-success: var(--state-success);
+  --color-success-bg: var(--state-success-bg);
+  --color-warning: var(--state-warning);
+  --color-warning-bg: var(--state-warning-bg);
+  --color-danger: var(--state-danger);
+  --color-danger-bg: var(--state-danger-bg);
+  --color-info: var(--state-info);
+  --color-info-bg: var(--state-info-bg);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius-lg);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --text-xs: var(--text-xs);
+  --text-sm: var(--text-sm);
+  --text-base: var(--text-base);
+  --text-lg: var(--text-lg);
+  --text-xl: var(--text-xl);
+  --text-2xl: var(--text-2xl);
+  --text-3xl: var(--text-3xl);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+}
+
+@layer base {
+  * {
+    border-color: var(--line-border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--surface-sunken);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: var(--leading-normal);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1 {
+    font-size: var(--text-3xl);
+    font-weight: 700;
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-tight);
+  }
+
+  h2 {
+    font-size: var(--text-2xl);
+    font-weight: 600;
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-tight);
+  }
+
+  h3 {
+    font-size: var(--text-xl);
+    font-weight: 600;
+    line-height: var(--leading-tight);
+  }
+
+  h4 {
+    font-size: var(--text-lg);
+    font-weight: 600;
+    line-height: var(--leading-tight);
+  }
+
+  a {
+    color: var(--accent-link);
+    text-decoration: none;
+  }
+
+  a:hover {
+    text-decoration: underline;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--line-focus);
+    outline-offset: 2px;
+  }
+
+  /* Числа в таблицах и статистике не должны «прыгать» по ширине */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  .container-page {
+    width: 100%;
+    max-width: var(--container-max);
+    margin-inline: auto;
+    padding-inline: var(--container-pad);
+  }
+
+  @media (max-width: 768px) {
+    .container-page {
+      padding-inline: 16px;
+    }
+  }
+
+  .card-hover {
+    transition:
+      transform 0.18s ease,
+      box-shadow 0.18s ease;
+  }
+
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-border-strong) transparent;
+  }
+}

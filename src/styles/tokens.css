@@ -1,0 +1,143 @@
+/* ============================================================
+   ТОКЕНЫ ОФОРМЛЕНИЯ — единственная точка смены скина.
+   Палитра и типографика соответствуют стилю permcsm.ru
+   (РСТ / ФБУ «Пермский ЦСМ»): изумрудный акцент, Open Sans,
+   строгая официальная подача.
+
+   Чтобы перекрасить приложение, достаточно поменять значения
+   переменных ниже — компоненты и утилиты Tailwind ссылаются
+   на них и правок не требуют.
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+
+  /* Поверхности */
+  --surface-bg: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f8f9fa;
+  --surface-alt: #f0f0f0;
+  --surface-overlay: rgba(255, 255, 255, 0.98);
+
+  /* Текст */
+  --text-primary: #1e1e1e;
+  --text-secondary: #777777;
+  --text-faint: #9a9a9a;
+  --text-inverse: #ffffff;
+
+  /* Линии */
+  --line-border: #e1e3e6;
+  --line-border-strong: #cdd1d6;
+  --line-focus: #006e4c;
+
+  /* Акценты */
+  --accent-primary: #006e4c;
+  --accent-primary-hover: #03986a;
+  --accent-primary-text: #ffffff;
+  --accent-secondary: #13aff0;
+  --accent-subtle: #eaf5f1;
+  --accent-link: #006e4c;
+
+  /* Состояния */
+  --state-success: #0a7d55;
+  --state-success-bg: #eaf5f1;
+  --state-warning: #a3620a;
+  --state-warning-bg: #fdf5e6;
+  --state-danger: #d70f26;
+  --state-danger-bg: #fff0f1;
+  --state-info: #0f8ec4;
+  --state-info-bg: #e9f7fe;
+  --state-alert: #ff253a;
+
+  /* Категории для графиков */
+  --chart-1: #006e4c;
+  --chart-2: #03986a;
+  --chart-3: #13aff0;
+  --chart-4: #777777;
+  --chart-5: #e1a100;
+  --chart-6: #ff253a;
+
+  /* Геометрия */
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-lg: 8px;
+  --container-max: 1200px;
+  --container-pad: 40px;
+
+  /* Тени */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
+
+  /* Типографика */
+  --font-sans:
+    'Open Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --text-xs: 13px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --text-2xl: 28px;
+  --text-3xl: 36px;
+  --leading-tight: 1.25;
+  --leading-normal: 1.6;
+  --tracking-tight: -0.01em;
+
+  /* Плотность таблиц */
+  --table-row-height: 44px;
+  --table-cell-x: 14px;
+
+  /* Размеры управляющих элементов */
+  --control-h: 46px;
+  --control-h-sm: 36px;
+  --mark-size: 20px;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --surface-bg: #14181a;
+  --surface-raised: #1b2023;
+  --surface-sunken: #171c1e;
+  --surface-alt: #22282b;
+  --surface-overlay: rgba(27, 32, 35, 0.98);
+
+  --text-primary: #f2f4f3;
+  --text-secondary: #a8b0ad;
+  --text-faint: #7d8582;
+  --text-inverse: #14181a;
+
+  --line-border: #2a3134;
+  --line-border-strong: #3b4347;
+  --line-focus: #2fbf8f;
+
+  --accent-primary: #2fbf8f;
+  --accent-primary-hover: #45d3a4;
+  --accent-primary-text: #0d1112;
+  --accent-secondary: #4cc3f5;
+  --accent-subtle: #173229;
+  --accent-link: #45d3a4;
+
+  --state-success: #45d3a4;
+  --state-success-bg: #143126;
+  --state-warning: #e8b45c;
+  --state-warning-bg: #33270f;
+  --state-danger: #ff7080;
+  --state-danger-bg: #3a1418;
+  --state-info: #4cc3f5;
+  --state-info-bg: #0f2a36;
+
+  --chart-1: #2fbf8f;
+  --chart-2: #45d3a4;
+  --chart-3: #4cc3f5;
+  --chart-4: #a8b0ad;
+  --chart-5: #e8b45c;
+  --chart-6: #ff7080;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
