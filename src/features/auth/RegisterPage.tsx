@@ -9,7 +9,7 @@ import { Field, Input } from '@/ui/form'
 import { PageTitle } from '@/ui/card'
 
 export function RegisterPage() {
-  const { signUp } = useAuth()
+  const { signUp, backendError } = useAuth()
   const navigate = useNavigate()
   const [form, setForm] = useState({ email: '', password: '', fullName: '', department: '', position: '' })
   const [error, setError] = useState<string | null>(null)
@@ -35,6 +35,10 @@ export function RegisterPage() {
   return (
     <div className="mx-auto max-w-md space-y-6 pt-12">
       <PageTitle title="Регистрация" description="Создайте аккаунт для прохождения опросов" />
+
+      {backendError && (
+        <Alert tone="danger" title="Хранилище не настроено">{backendError}</Alert>
+      )}
 
       <Card>
         <CardHeader title="Новый аккаунт" />

@@ -9,7 +9,7 @@ import { Field, Input } from '@/ui/form'
 import { PageTitle } from '@/ui/card'
 
 export function LoginPage() {
-  const { signIn, demoHint } = useAuth()
+  const { signIn, demoHint, backendError } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -33,6 +33,10 @@ export function LoginPage() {
   return (
     <div className="mx-auto max-w-md space-y-6 pt-12">
       <PageTitle title="Вход в систему" description="Введите email и пароль для доступа к опросам" />
+
+      {backendError && (
+        <Alert tone="danger" title="Хранилище не настроено">{backendError}</Alert>
+      )}
 
       {demoHint && (
         <Alert tone="info" title="Демо-режим">

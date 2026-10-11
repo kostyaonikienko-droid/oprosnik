@@ -77,7 +77,7 @@ function mapAuthError(error: { message: string; code?: string }, fallback: 'netw
     return new AppError('forbidden', error.message)
   }
   if (message.includes('duplicate key') || message.includes('23505')) {
-    return new AppError('already-responded')
+    return new AppError('network', error.message)
   }
   if (message.includes('email') && message.includes('invalid')) {
     return new AppError('validation', error.message)
@@ -185,13 +185,13 @@ export class SupabaseBackend implements Backend {
     if (error) throw mapAuthError(error)
     if (!data.user) throw new AppError('network', 'Не удалось создать пользователя')
 
-    const { error: profileError } = await this.client.from('profiles').insert({
+    const { error: profileError } = await this.client.from('profiles').upsert({
       id: data.user.id,
       full_name: input.fullName.trim(),
       department: input.department.trim(),
       position: input.position.trim(),
       email: input.email.trim().toLowerCase(),
-    })
+    }, { onConflict: 'id' })
     if (profileError) throw mapAuthError(profileError)
 
     if (!data.session) {
