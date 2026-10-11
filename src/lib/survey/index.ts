@@ -4,6 +4,9 @@ export {
   parseSurveyMarkdown,
   parseAttributes,
   surveyToMarkdown,
+  errorIssues,
+  warningIssues,
+  type IssueLevel,
   type ParseIssue,
   type ParseResult,
 } from './parse'

@@ -7,7 +7,8 @@ import { useAuth } from '@/features/auth/AuthContext'
 
 const NAV_ITEMS = [
   { to: '/me', label: 'Мои опросы' },
-  { to: '/moderator', label: 'Модерация', role: 'moderator' as const },
+  { to: '/publish', label: 'Конструктор опросов', role: 'moderator' as const },
+  { to: '/moderator', label: 'Результаты', role: 'moderator' as const },
 ]
 
 export function Layout({ children }: { children: ReactNode }) {

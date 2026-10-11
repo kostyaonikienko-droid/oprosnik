@@ -3,11 +3,15 @@ import remarkParse from 'remark-parse'
 import { unified } from 'unified'
 import { parse as parseYaml } from 'yaml'
 import { formatSchemaIssues, surveySchema } from './schema'
-import type { Question, Survey, SurveyStatus } from './types'
+import type { Question, QuestionType, Survey, SurveyStatus } from './types'
 import { QUESTION_TYPES } from './types'
+
+export type IssueLevel = 'error' | 'warning'
 
 /** Ошибка разбора с указанием строки в исходном .md */
 export interface ParseIssue {
+  /** error блокирует публикацию, warning только подсвечивается */
+  level: IssueLevel
   line: number | null
   message: string
 }
@@ -15,6 +19,14 @@ export interface ParseIssue {
 export type ParseResult =
   | { ok: true; survey: Survey; issues: ParseIssue[] }
   | { ok: false; issues: ParseIssue[] }
+
+export function errorIssues(issues: ParseIssue[]): ParseIssue[] {
+  return issues.filter((issue) => issue.level === 'error')
+}
+
+export function warningIssues(issues: ParseIssue[]): ParseIssue[] {
+  return issues.filter((issue) => issue.level === 'warning')
+}
 
 type MdNode = {
   type: string
@@ -27,6 +39,55 @@ type MdNode = {
 
 const NUMERIC_ATTRS = new Set(['min', 'max', 'step', 'rows', 'maxlength', 'scale'])
 const BOOLEAN_ATTRS = new Set(['required', 'shuffle', 'slider'])
+
+/** Атрибуты, допустимые у вопроса любого типа */
+const COMMON_ATTRS = ['id', 'type', 'required', 'comment', 'description'] as const
+
+/** Атрибуты, специфичные для конкретного типа вопроса */
+const TYPE_ATTRS: Record<string, readonly string[]> = {
+  single: ['shuffle'],
+  multi: ['min', 'max', 'shuffle'],
+  agree: ['scale'],
+  number: ['min', 'max', 'step', 'slider'],
+  text: ['rows', 'maxlength'],
+}
+
+const ALL_KNOWN_ATTRS = [
+  ...COMMON_ATTRS,
+  ...new Set(Object.values(TYPE_ATTRS).flat()),
+] as string[]
+
+/** Расстояние Левенштейна — для подсказки «возможно, имелся в виду …» */
+function editDistance(a: string, b: string): number {
+  let previous = Array.from({ length: b.length + 1 }, (_, index) => index)
+  for (let i = 1; i <= a.length; i += 1) {
+    const current: number[] = [i]
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      current[j] = Math.min(
+        (current[j - 1] ?? 0) + 1,
+        (previous[j] ?? 0) + 1,
+        (previous[j - 1] ?? 0) + cost,
+      )
+    }
+    previous = current
+  }
+  return previous[b.length] ?? 0
+}
+
+function suggestAttr(name: string): string | null {
+  const target = name.toLowerCase()
+  let best: string | null = null
+  let bestDistance = Number.POSITIVE_INFINITY
+  for (const candidate of ALL_KNOWN_ATTRS) {
+    const distance = editDistance(target, candidate)
+    if (distance < bestDistance) {
+      bestDistance = distance
+      best = candidate
+    }
+  }
+  return bestDistance <= 2 ? best : null
+}
 
 interface FrontmatterResult {
   data: Record<string, unknown>
@@ -46,6 +107,7 @@ function splitFrontmatter(source: string): FrontmatterResult {
       offset: 0,
       issues: [
         {
+          level: 'error',
           line: 1,
           message:
             'Не найден YAML-блок в начале файла. Ожидается --- … --- с полями id, title, status.',
@@ -62,7 +124,7 @@ function splitFrontmatter(source: string): FrontmatterResult {
         data: {},
         body: normalized.slice(match[0].length),
         offset: frontmatterLines,
-        issues: [{ line: 2, message: 'YAML-блок пустой' }],
+        issues: [{ level: 'error', line: 2, message: 'YAML-блок пустой' }],
       }
     }
     if (typeof data !== 'object' || Array.isArray(data)) {
@@ -70,7 +132,13 @@ function splitFrontmatter(source: string): FrontmatterResult {
         data: {},
         body: normalized.slice(match[0].length),
         offset: frontmatterLines,
-        issues: [{ line: 2, message: 'В YAML-блоке ожидается набор полей key: value' }],
+        issues: [
+          {
+            level: 'error',
+            line: 2,
+            message: 'В YAML-блоке ожидается набор полей key: value',
+          },
+        ],
       }
     }
     return {
@@ -86,6 +154,7 @@ function splitFrontmatter(source: string): FrontmatterResult {
       offset: frontmatterLines,
       issues: [
         {
+          level: 'error',
           line: 2,
           message: `Не удалось разобрать YAML: ${error instanceof Error ? error.message : String(error)}`,
         },
@@ -163,30 +232,28 @@ interface RawQuestion {
 }
 
 function extractQuestions(root: MdNode, offset: number): {
-  introLines: number
+  /** Строка первого `##` в координатах тела файла (1-based) или null */
+  firstQuestionLine: number | null
   questions: RawQuestion[]
   issues: ParseIssue[]
 } {
   const children = root.children ?? []
   const issues: ParseIssue[] = []
   const questions: RawQuestion[] = []
-  let introLines = 0
+  let firstQuestionLine: number | null = null
   let current: RawQuestion | null = null
 
   for (const node of children) {
     const isH2 = node.type === 'heading' && node.depth === 2
     if (isH2) {
+      if (firstQuestionLine === null) firstQuestionLine = node.position?.start.line ?? 1
       const { text, attrs } = splitHeading(nodeToString(node as never))
       current = { line: nodeLine(node, offset), attrs, text, options: [], descriptionParts: [] }
       questions.push(current)
       continue
     }
 
-    if (!current) {
-      // Сколько строк тела занимает приветственный текст до первого `##`
-      introLines = Math.max(introLines, (node.position?.start.line ?? 1) - 1)
-      continue
-    }
+    if (!current) continue
 
     if (node.type === 'list') {
       collectListItems(node, current.options)
@@ -199,13 +266,14 @@ function extractQuestions(root: MdNode, offset: number): {
 
   if (questions.length === 0) {
     issues.push({
+      level: 'error',
       line: null,
       message:
         'В теле файла не найдено ни одного вопроса. Каждый вопрос — это заголовок второго уровня (##).',
     })
   }
 
-  return { introLines: Math.max(introLines, 0), questions, issues }
+  return { firstQuestionLine, questions, issues }
 }
 
 function buildQuestion(raw: RawQuestion): { question: Record<string, unknown>; issues: ParseIssue[] } {
@@ -215,11 +283,13 @@ function buildQuestion(raw: RawQuestion): { question: Record<string, unknown>; i
 
   if (!type) {
     issues.push({
+      level: 'error',
       line: raw.line,
       message: `У вопроса «${raw.text || '(без текста)'}» не указан type. Добавьте {#id type=…}.`,
     })
   } else if (!QUESTION_TYPES.includes(type as (typeof QUESTION_TYPES)[number])) {
     issues.push({
+      level: 'error',
       line: raw.line,
       message: `Неизвестный type="${type}". Доступны: ${QUESTION_TYPES.join(', ')}.`,
     })
@@ -227,8 +297,37 @@ function buildQuestion(raw: RawQuestion): { question: Record<string, unknown>; i
 
   if (!attrs.id) {
     issues.push({
+      level: 'error',
       line: raw.line,
       message: `У вопроса «${raw.text || '(без текста)'}» не задан id. Добавьте {#q1}.`,
+    })
+  }
+
+  // Опечатки в атрибутах иначе теряются молча: `requred` вместо `required`
+  // привело бы к необязательному вопросу без единого предупреждения.
+  const knownType = QUESTION_TYPES.includes(type as QuestionType)
+  const allowed = knownType
+    ? [...COMMON_ATTRS, ...(TYPE_ATTRS[type] ?? [])]
+    : ALL_KNOWN_ATTRS
+
+  for (const key of Object.keys(attrs)) {
+    if (ALL_KNOWN_ATTRS.includes(key)) {
+      if (!allowed.includes(key)) {
+        issues.push({
+          level: 'warning',
+          line: raw.line,
+          message: `Атрибут "${key}" не применяется к типу "${type || '(не указан)'}" и будет проигнорирован.`,
+        })
+      }
+      continue
+    }
+    const suggestion = suggestAttr(key)
+    issues.push({
+      level: 'warning',
+      line: raw.line,
+      message: suggestion
+        ? `Неизвестный атрибут "${key}" — возможно, имелся в виду "${suggestion}".`
+        : `Неизвестный атрибут "${key}" будет проигнорирован.`,
     })
   }
 
@@ -250,6 +349,7 @@ function buildQuestion(raw: RawQuestion): { question: Record<string, unknown>; i
     question.options = raw.options
     if (raw.options.length === 0) {
       issues.push({
+        level: 'error',
         line: raw.line,
         message: `Для вопроса «${raw.text}» типа ${type} нужен список вариантов (- Вариант).`,
       })
@@ -296,11 +396,11 @@ export function parseSurveyMarkdown(source: string): ParseResult {
   const extracted = extractQuestions(tree, offset)
   const allIssues: ParseIssue[] = [...issues, ...extracted.issues]
 
-  const intro = body
-    .split(/\r?\n/)
-    .slice(0, extracted.introLines)
-    .join('\n')
-    .trim()
+  // Приветствие — всё тело до первого `##`, включая последний абзац
+  const bodyLines = body.split(/\r?\n/)
+  const introEndLine =
+    extracted.firstQuestionLine === null ? bodyLines.length : extracted.firstQuestionLine - 1
+  const intro = bodyLines.slice(0, Math.max(introEndLine, 0)).join('\n').trim()
 
   const questions: Record<string, unknown>[] = []
   for (const raw of extracted.questions) {
@@ -321,10 +421,6 @@ export function parseSurveyMarkdown(source: string): ParseResult {
     version: 1,
   }
 
-  if (allIssues.length > 0 && questions.length === 0) {
-    return { ok: false, issues: allIssues }
-  }
-
   const parsed = surveySchema.safeParse(cleanUndefined(candidate))
   if (!parsed.success) {
     const lineByQuestion = new Map<number, number>()
@@ -333,12 +429,20 @@ export function parseSurveyMarkdown(source: string): ParseResult {
     for (const issue of formatSchemaIssues(parsed.error)) {
       const questionIndex = /^questions\.(\d+)/.exec(issue.path)?.[1]
       allIssues.push({
-        line: questionIndex === undefined ? null : (lineByQuestion.get(Number(questionIndex)) ?? null),
+        level: 'error',
+        line:
+          questionIndex === undefined ? null : (lineByQuestion.get(Number(questionIndex)) ?? null),
         message: issue.path.startsWith('questions.')
           ? `${issue.path.replace(/^questions\.\d+\.?/, '') || 'вопрос'}: ${issue.message}`
           : `${issue.path}: ${issue.message}`,
       })
     }
+    return { ok: false, issues: allIssues }
+  }
+
+  // Отсутствующий `type` или `id`schema не ловит (type откатывается к text),
+  // поэтому ошибки структурного разбора тоже блокируют результат.
+  if (errorIssues(allIssues).length > 0) {
     return { ok: false, issues: allIssues }
   }
 
@@ -363,28 +467,33 @@ function cleanUndefined<T>(value: T): T {
   return value
 }
 
-export function surveyToMarkdown(survey: Survey): string {
-  const frontmatter: Record<string, unknown> = {
-    id: survey.id,
-    title: survey.title,
-    status: survey.status,
-  }
-  if (survey.startsAt) frontmatter.starts_at = survey.startsAt
-  if (survey.endsAt) frontmatter.ends_at = survey.endsAt
+/**
+ * Экранирует первый символ строки, чтобы markdown не принял обычный текст
+ * за список, заголовок или цитату при повторном разборе.
+ */
+function escapeBlockStart(line: string): string {
+  return /^\s*([-*+]|\d+[.)]|#|>)/.test(line) ? line.replace(/^(\s*)(.)/, '$1\\$2') : line
+}
 
-  const lines: string[] = ['---']
-  for (const [key, value] of Object.entries(frontmatter)) {
-    lines.push(`${key}: ${typeof value === 'string' && /[:#\n]/.test(value) ? JSON.stringify(value) : value}`)
-  }
+export function surveyToMarkdown(survey: Survey): string {
+  const lines: string[] = [
+    '---',
+    `id: ${survey.id}`,
+    // title всегда в двойных кавычках: JSON-строка является валидным
+    // YAML-скаляром и корректно переживает кавычки, двоеточия и решётки
+    `title: ${JSON.stringify(survey.title)}`,
+    `status: ${survey.status}`,
+  ]
+  if (survey.startsAt) lines.push(`starts_at: ${survey.startsAt}`)
+  if (survey.endsAt) lines.push(`ends_at: ${survey.endsAt}`)
   lines.push('---', '')
 
-  if (survey.intro) lines.push(survey.intro, '')
+  if (survey.intro.trim()) lines.push(survey.intro.trim(), '')
 
   for (const question of survey.questions) {
     const attrs: string[] = [`#${question.id}`, `type=${question.type}`]
     if (question.required) attrs.push('required')
     if (question.comment !== 'off') attrs.push(`comment=${question.comment}`)
-    if (question.description) attrs.push(`description="${question.description.replace(/\n/g, ' ')}"`)
 
     if (question.type === 'single' || question.type === 'multi') {
       if (question.shuffle) attrs.push('shuffle')
@@ -405,10 +514,25 @@ export function surveyToMarkdown(survey: Survey): string {
       if (question.maxlength !== undefined) attrs.push(`maxlength=${question.maxlength}`)
     }
 
-    lines.push(`## ${question.text} {${attrs.join(' ')}}`)
+    lines.push(`## ${question.text.replace(/\s+/g, ' ').trim()} {${attrs.join(' ')}}`)
+
+    // Подсказка выводится абзацем, а не атрибутом description="…":
+    // так сохраняются переносы строк и кавычки внутри текста
+    const description = question.description?.trim()
+    if (description) {
+      const paragraphs = description.split(/\n{2,}/)
+      lines.push('')
+      paragraphs.forEach((paragraph, paragraphIndex) => {
+        paragraph.split('\n').forEach((line, lineIndex) => {
+          lines.push(lineIndex === 0 ? escapeBlockStart(line) : line)
+        })
+        if (paragraphIndex < paragraphs.length - 1) lines.push('')
+      })
+    }
 
     if (question.type === 'single' || question.type === 'multi') {
-      for (const option of question.options) lines.push(`- ${option}`)
+      lines.push('')
+      for (const option of question.options) lines.push(`- ${escapeBlockStart(option)}`)
     }
 
     lines.push('')
